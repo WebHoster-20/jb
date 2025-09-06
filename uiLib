@@ -1,0 +1,171 @@
+local NotificationLibrary = {}
+
+local TweenService = game:GetService("TweenService")
+local Players = game:GetService("Players")
+
+NotificationLibrary.Config = {
+    Position = UDim2.new(1, -20, 1, -20),
+    MaxNotifications = 5,
+    Spacing = 10,
+    Duration = 5,
+    FadeTime = 0.5,
+}
+
+NotificationLibrary.ActiveNotifications = {}
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "NotificationLibrary"
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent = Players.LocalPlayer:WaitForChild("PlayerGui")
+
+local notificationsFolder = Instance.new("Folder")
+notificationsFolder.Name = "Notifications"
+notificationsFolder.Parent = screenGui
+
+function NotificationLibrary:CreateNotificationTemplate()
+    local frame = Instance.new("Frame")
+    frame.Name = "Notification"
+    frame.Size = UDim2.new(0, 300, 0, 80)
+    frame.Position = UDim2.new(1, 0, 1, 0)
+    frame.AnchorPoint = Vector2.new(1, 1)
+    frame.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+    frame.BackgroundTransparency = 0.2
+    frame.BorderSizePixel = 0
+    frame.ClipsDescendants = true
+    frame.ZIndex = 10
+    
+    local UICorner = Instance.new("UICorner")
+    UICorner.CornerRadius = UDim.new(0, 12)
+    UICorner.Parent = frame
+    
+    local UIStroke = Instance.new("UIStroke")
+    UIStroke.Color = Color3.fromRGB(60, 60, 60)
+    UIStroke.Thickness = 1
+    UIStroke.Transparency = 0
+    UIStroke.Parent = frame
+    
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, -20, 0, 20)
+    titleLabel.Position = UDim2.new(0, 10, 0, 10)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+    titleLabel.TextTransparency = 0
+    titleLabel.TextSize = 16
+    titleLabel.Font = Enum.Font.GothamBold
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.Text = "Notification"
+    titleLabel.ZIndex = 11
+    titleLabel.Parent = frame
+    
+    local messageLabel = Instance.new("TextLabel")
+    messageLabel.Name = "Message"
+    messageLabel.Size = UDim2.new(1, -20, 1, -40)
+    messageLabel.Position = UDim2.new(0, 10, 0, 35)
+    messageLabel.BackgroundTransparency = 1
+    messageLabel.TextColor3 = Color3.fromRGB(200, 200, 200)
+    messageLabel.TextTransparency = 0
+    messageLabel.TextSize = 14
+    messageLabel.Font = Enum.Font.Gotham
+    messageLabel.TextXAlignment = Enum.TextXAlignment.Left
+    messageLabel.TextYAlignment = Enum.TextYAlignment.Top
+    messageLabel.TextWrapped = true
+    messageLabel.Text = ""
+    messageLabel.ZIndex = 11
+    messageLabel.Parent = frame
+    
+    local progressContainer = Instance.new("Frame")
+    progressContainer.Name = "ProgressContainer"
+    progressContainer.Size = UDim2.new(1, -24, 0, 2)
+    progressContainer.Position = UDim2.new(0, 12, 1, -12)
+    progressContainer.AnchorPoint = Vector2.new(0, 1)
+    progressContainer.BackgroundTransparency = 1
+    progressContainer.BorderSizePixel = 0
+    progressContainer.ZIndex = 12
+    progressContainer.ClipsDescendants = true
+    progressContainer.Parent = frame
+    
+    local progressBar = Instance.new("Frame")
+    progressBar.Name = "ProgressBar"
+    progressBar.Size = UDim2.new(1, 0, 1, 0)
+    progressBar.Position = UDim2.new(0, 0, 0, 0)
+    progressBar.AnchorPoint = Vector2.new(0, 0)
+    progressBar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+    progressBar.BorderSizePixel = 0
+    progressBar.ZIndex = 13
+    progressBar.Parent = progressContainer
+    
+    local progressCorner = Instance.new("UICorner")
+    progressCorner.CornerRadius = UDim.new(0, 1)
+    progressCorner.Parent = progressBar
+    
+    return frame
+end
+
+function NotificationLibrary:Tween(instance, properties, duration, easingStyle, easingDirection)
+    local tweenInfo = TweenInfo.new(
+        duration or 0.5,
+        easingStyle or Enum.EasingStyle.Quad,
+        easingDirection or Enum.EasingDirection.Out
+    )
+    local tween = TweenService:Create(instance, tweenInfo, properties)
+    tween:Play()
+    return tween
+end
+
+function NotificationLibrary:UpdatePositions()
+    local totalHeight = 0
+    for i, notification in ipairs(self.ActiveNotifications) do
+        local targetY = -totalHeight - self.Config.Spacing
+        self:Tween(notification, {Position = UDim2.new(1, -20, 1, targetY)}, 0.3)
+        totalHeight = totalHeight + notification.AbsoluteSize.Y + self.Config.Spacing
+    end
+end
+
+function NotificationLibrary:Notify(title, message, duration, color)
+    duration = duration or self.Config.Duration
+    color = color or Color3.fromRGB(0, 170, 255)
+    
+    local notification = self:CreateNotificationTemplate()
+    notification.Parent = notificationsFolder
+    notification.Title.Text = title or "Notification"
+    notification.Message.Text = message or ""
+    notification.ProgressContainer.ProgressBar.BackgroundColor3 = color
+    table.insert(self.ActiveNotifications, notification)
+    
+    self:Tween(notification, {Position = UDim2.new(1, -20, 1, -20), BackgroundTransparency = 0.2}, self.Config.FadeTime)
+    self:UpdatePositions()
+    
+    self:Tween(notification.ProgressContainer.ProgressBar, {Size = UDim2.new(0, 0, 1, 0)}, duration, Enum.EasingStyle.Linear)
+    
+    task.delay(duration, function()
+        self:RemoveNotification(notification)
+    end)
+    
+    return notification
+end
+
+function NotificationLibrary:RemoveNotification(notification)
+    local index = table.find(self.ActiveNotifications, notification)
+    if index then
+        table.remove(self.ActiveNotifications, index)
+        self:Tween(notification, {BackgroundTransparency = 1}, self.Config.FadeTime)
+        self:Tween(notification.Title, {TextTransparency = 1}, self.Config.FadeTime)
+        self:Tween(notification.Message, {TextTransparency = 1}, self.Config.FadeTime)
+        self:Tween(notification.UIStroke, {Transparency = 1}, self.Config.FadeTime)
+        task.delay(self.Config.FadeTime, function()
+            if notification and notification.Parent then
+                notification:Destroy()
+                self:UpdatePositions()
+            end
+        end)
+    end
+end
+
+function NotificationLibrary:ClearAll()
+    for _, notification in ipairs(self.ActiveNotifications) do
+        self:RemoveNotification(notification)
+    end
+end
+
+return NotificationLibrary
